@@ -38,7 +38,7 @@ func read(r io.Reader) ([]UserPW, error) {
 	result := []UserPW{}
 	for _, record := range records {
 		if len(record) != 2 {
-			return nil, errors.New("malformed users file")
+			return nil, errors.New("用户文件格式不正确")
 		}
 		result = append(result, UserPW{Name: record[0], Pass: record[1]})
 	}
@@ -52,7 +52,7 @@ func ReadPasswordsFile(path string, secret []byte, sessionTimeout int) (*Users, 
 		store:          sessions.NewCookieStore(secret),
 	}
 	if path == "" {
-		log.Info().Msg("Users file not specified")
+		log.Info().Msg("未指定用户文件")
 		return users, nil
 	}
 
@@ -69,7 +69,7 @@ func ReadPasswordsFile(path string, secret []byte, sessionTimeout int) (*Users, 
 	for _, record := range userPws {
 		users.Lookup[record.Name] = record.Pass
 	}
-	log.Info().Int("amount", len(users.Lookup)).Msg("Loaded Users")
+	log.Info().Int("amount", len(users.Lookup)).Msg("用户已加载")
 	return users, nil
 }
 
@@ -92,7 +92,7 @@ func (u *Users) Logout(w http.ResponseWriter, r *http.Request) {
 	if err := u.store.Save(r, w, session); err != nil {
 		w.WriteHeader(500)
 		_ = json.NewEncoder(w).Encode(&Response{
-			Message: err.Error(),
+			Message: "退出登录失败，请稍后重试",
 		})
 		return
 	}
@@ -106,7 +106,7 @@ func (u *Users) Authenticate(w http.ResponseWriter, r *http.Request) {
 	if !u.Validate(user, pass) {
 		w.WriteHeader(401)
 		_ = json.NewEncoder(w).Encode(&Response{
-			Message: "could not authenticate",
+			Message: "用户名或密码错误",
 		})
 		return
 	}
@@ -118,13 +118,13 @@ func (u *Users) Authenticate(w http.ResponseWriter, r *http.Request) {
 	if err := u.store.Save(r, w, session); err != nil {
 		w.WriteHeader(500)
 		_ = json.NewEncoder(w).Encode(&Response{
-			Message: err.Error(),
+			Message: "登录失败，请稍后重试",
 		})
 		return
 	}
 	w.WriteHeader(200)
 	_ = json.NewEncoder(w).Encode(&Response{
-		Message: "authenticated",
+		Message: "身份验证成功",
 	})
 }
 

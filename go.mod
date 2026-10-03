@@ -1,4 +1,4 @@
-module github.com/screego/server
+module github.com/peerloom/server
 
 go 1.26.0
 

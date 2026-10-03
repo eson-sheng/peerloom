@@ -6,10 +6,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/peerloom/server/config"
+	"github.com/peerloom/server/ws/outgoing"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog/log"
-	"github.com/screego/server/config"
-	"github.com/screego/server/ws/outgoing"
 )
 
 type ConnectionMode string
@@ -21,23 +21,45 @@ const (
 )
 
 type Room struct {
+	Playback          *outgoing.PlaybackState
 	ID                string
 	CloseOnOwnerLeave bool
 	Mode              ConnectionMode
 	Users             map[xid.ID]*User
 	Sessions          map[xid.ID]*RoomSession
+	MemberLimit       int
+	MediaSeatLimit    int
+	Locked            bool
+}
+
+// Default limits keep the WebRTC mesh small; room configuration may override them.
+const MaxRoomMembers = 12
+const MaxMediaSeats = 6
+
+func (r *Room) maxMembers() int {
+	if r.MemberLimit > 0 {
+		return r.MemberLimit
+	}
+	return MaxRoomMembers
+}
+func (r *Room) maxMediaSeats() int {
+	if r.MediaSeatLimit > 0 {
+		return r.MediaSeatLimit
+	}
+	return MaxMediaSeats
 }
 
 const (
-	CloseOwnerLeft = "Owner Left"
-	CloseDone      = "Read End"
+	CloseOwnerLeft = "房主已离开，房间已关闭"
+	CloseDone      = "读取结束"
 )
 
-func (r *Room) newSession(host, client xid.ID, rooms *Rooms, v4, v6 net.IP) {
+func (r *Room) newSession(host, client xid.ID, rooms *Rooms, v4, v6 net.IP, kind string) {
 	id := xid.New()
 	r.Sessions[id] = &RoomSession{
 		Host:   host,
 		Client: client,
+		Kind:   kind,
 	}
 	sessionCreatedTotal.Inc()
 
@@ -62,8 +84,8 @@ func (r *Room) newSession(host, client xid.ID, rooms *Rooms, v4, v6 net.IP) {
 			Username:   clientName,
 		}}
 	}
-	r.Users[host].WriteTimeout(outgoing.HostSession{Peer: client, ID: id, ICEServers: iceHost})
-	r.Users[client].WriteTimeout(outgoing.ClientSession{Peer: host, ID: id, ICEServers: iceClient})
+	r.Users[host].WriteTimeout(outgoing.HostSession{Peer: client, ID: id, Kind: kind, ICEServers: iceHost})
+	r.Users[client].WriteTimeout(outgoing.ClientSession{Peer: host, ID: id, Kind: kind, ICEServers: iceClient})
 }
 
 func (r *Rooms) addresses(prefix string, v4, v6 net.IP, tcp bool) (result []string) {
@@ -94,6 +116,7 @@ func (r *Room) closeSession(rooms *Rooms, id xid.ID) {
 type RoomSession struct {
 	Host   xid.ID
 	Client xid.ID
+	Kind   string
 }
 
 func (r *Room) notifyInfoChanged() {
@@ -101,11 +124,14 @@ func (r *Room) notifyInfoChanged() {
 		users := []outgoing.User{}
 		for _, user := range r.Users {
 			users = append(users, outgoing.User{
-				ID:        user.ID,
-				Name:      user.Name,
-				Streaming: user.Streaming,
-				You:       current == user,
-				Owner:     user.Owner,
+				ID:           user.ID,
+				Name:         user.Name,
+				Streaming:    user.Streaming,
+				VoiceActive:  user.VoiceActive,
+				You:          current == user,
+				Owner:        user.Owner,
+				MediaEnabled: user.MediaEnabled,
+				MediaActive:  user.MediaActive,
 			})
 		}
 
@@ -125,19 +151,26 @@ func (r *Room) notifyInfoChanged() {
 		})
 
 		current.WriteTimeout(outgoing.Room{
-			ID:    r.ID,
-			Users: users,
+			ID:            r.ID,
+			Playback:      r.Playback,
+			Locked:        r.Locked,
+			MaxMembers:    r.maxMembers(),
+			MaxMediaSeats: r.maxMediaSeats(),
+			Users:         users,
 		})
 	}
 }
 
 type User struct {
-	ID        xid.ID
-	Addr      net.IP
-	Name      string
-	Streaming bool
-	Owner     bool
-	_write    chan<- outgoing.Message
+	ID           xid.ID
+	Addr         net.IP
+	Name         string
+	Streaming    bool
+	VoiceActive  bool
+	Owner        bool
+	MediaEnabled bool
+	MediaActive  bool
+	_write       chan<- outgoing.Message
 }
 
 func (u *User) WriteTimeout(msg outgoing.Message) {

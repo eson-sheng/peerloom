@@ -11,29 +11,31 @@ import {
 } from '@mui/material';
 import {makeStyles} from 'tss-react/mui';
 import {green} from '@mui/material/colors';
+import {i18n} from './i18n';
 
 export const LoginForm = ({config: {login}, hide}: {config: UseConfig; hide?: () => void}) => {
     const [user, setUser] = React.useState('');
     const [pass, setPass] = React.useState('');
     const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState('');
+    const submitting = React.useRef(false);
     const submit = async (event: {preventDefault: () => void}) => {
         event.preventDefault();
-        setLoading(true);
-        login(user, pass)
-            .then(() => {
-                setLoading(false);
-            })
-            .catch(() => setLoading(false));
+        if (submitting.current) return;
+        submitting.current = true; setLoading(true); setError('');
+        try { await login(user, pass); }
+        catch (error) { setError(error instanceof Error ? error.message : '登录失败，请重试。'); }
+        finally { submitting.current = false; setLoading(false); }
     };
     return (
         <div>
             <FormControl fullWidth>
                 <form onSubmit={submit}>
                     <div style={{display: 'flex', alignItems: 'center'}}>
-                        <Typography style={{flex: 1}}>Login to Screego</Typography>
+                        <Typography style={{flex: 1}}>{i18n['login_to_peerloom']}</Typography>
                         {hide ? (
                             <Button variant="outlined" size="small" onClick={hide}>
-                                Go Back
+                                {i18n['go_back']}
                             </Button>
                         ) : undefined}
                     </div>
@@ -41,7 +43,7 @@ export const LoginForm = ({config: {login}, hide}: {config: UseConfig; hide?: ()
                         fullWidth
                         value={user}
                         onChange={(e) => setUser(e.target.value)}
-                        label="Username"
+                        label={i18n['username']}
                         size="small"
                         margin="dense"
                     />
@@ -50,19 +52,19 @@ export const LoginForm = ({config: {login}, hide}: {config: UseConfig; hide?: ()
                         value={pass}
                         type="password"
                         onChange={(e) => setPass(e.target.value)}
-                        label="Password"
+                        label={i18n['password']}
                         size="small"
                         margin="dense"
                     />
+                    {error && <Typography role="alert" color="error">{error}</Typography>}
                     <Box sx={{marginTop: 1}}>
                         <LoadingButton
                             type="submit"
                             loading={loading}
-                            onClick={submit}
                             fullWidth
                             variant="contained"
                         >
-                            Login
+                            {i18n['login']}
                         </LoadingButton>
                     </Box>
                 </form>

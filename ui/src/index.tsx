@@ -4,6 +4,7 @@ import './global.css';
 import {Button, createTheme, CssBaseline, ThemeProvider, StyledEngineProvider} from '@mui/material';
 import {Router} from './Router';
 import {SnackbarProvider} from 'notistack';
+import {i18n} from './i18n';
 
 const theme = createTheme({
     components: {
@@ -78,7 +79,7 @@ const Snackbar: React.FC<React.PropsWithChildren> = ({children}) => {
             ref={notistackRef}
             action={(key) => (
                 <Button onClick={onClickDismiss(key)} size="small">
-                    Dismiss
+                    {i18n['cancel']}
                 </Button>
             )}
         >

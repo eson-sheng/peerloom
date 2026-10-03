@@ -17,12 +17,18 @@ type Join struct {
 
 func (e *Join) Execute(rooms *Rooms, current ClientInfo) error {
 	if rooms.connected[current.ID] != "" {
-		return fmt.Errorf("cannot join room, you are already in one")
+		return fmt.Errorf("你已在其他房间中，无法重复加入")
 	}
 
 	room, ok := rooms.Rooms[e.ID]
 	if !ok {
-		return fmt.Errorf("room with id %s does not exist", e.ID)
+		return fmt.Errorf("房间 %s 不存在", e.ID)
+	}
+	if room.Locked {
+		return fmt.Errorf("房间已锁定")
+	}
+	if len(room.Users) >= room.maxMembers() {
+		return fmt.Errorf("房间人数已满")
 	}
 	name := e.UserName
 	if current.Authenticated {
@@ -32,13 +38,22 @@ func (e *Join) Execute(rooms *Rooms, current ClientInfo) error {
 		name = rooms.RandUserName()
 	}
 
+	mediaActive := 0
+	for _, member := range room.Users {
+		if member.MediaActive {
+			mediaActive++
+		}
+	}
+
 	room.Users[current.ID] = &User{
-		ID:        current.ID,
-		Name:      name,
-		Streaming: false,
-		Owner:     false,
-		Addr:      current.Addr,
-		_write:    current.Write,
+		ID:           current.ID,
+		Name:         name,
+		Streaming:    false,
+		Owner:        false,
+		MediaEnabled: true,
+		MediaActive:  mediaActive < room.maxMediaSeats(),
+		Addr:         current.Addr,
+		_write:       current.Write,
 	}
 	rooms.connected[current.ID] = room.ID
 	room.notifyInfoChanged()
@@ -50,10 +65,16 @@ func (e *Join) Execute(rooms *Rooms, current ClientInfo) error {
 	}
 
 	for _, user := range room.Users {
-		if current.ID == user.ID || !user.Streaming {
+		if current.ID == user.ID {
 			continue
 		}
-		room.newSession(user.ID, current.ID, rooms, v4, v6)
+		room.newSession(user.ID, current.ID, rooms, v4, v6, "data")
+		if user.VoiceActive {
+			room.newSession(user.ID, current.ID, rooms, v4, v6, "voice")
+		}
+		if user.Streaming {
+			room.newSession(user.ID, current.ID, rooms, v4, v6, "media")
+		}
 	}
 
 	return nil

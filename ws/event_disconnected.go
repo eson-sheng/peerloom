@@ -4,7 +4,7 @@ import (
 	"bytes"
 
 	"github.com/gorilla/websocket"
-	"github.com/screego/server/ws/outgoing"
+	"github.com/peerloom/server/ws/outgoing"
 )
 
 type Disconnected struct {
@@ -39,6 +39,9 @@ func (e *Disconnected) executeNoError(rooms *Rooms, current ClientInfo) {
 		return
 	}
 
+	if room.Playback != nil && room.Playback.From == current.ID {
+		room.Playback = nil
+	}
 	delete(room.Users, current.ID)
 	usersLeftTotal.Inc()
 
@@ -73,5 +76,16 @@ func (e *Disconnected) executeNoError(rooms *Rooms, current ClientInfo) {
 		return
 	}
 
+	if user.Owner {
+		var successor *User
+		for _, member := range room.Users {
+			if successor == nil || member.ID.String() < successor.ID.String() {
+				successor = member
+			}
+		}
+		if successor != nil {
+			successor.Owner = true
+		}
+	}
 	room.notifyInfoChanged()
 }
