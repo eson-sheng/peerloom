@@ -13,15 +13,15 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/peerloom/server/config/ipdns"
+	"github.com/peerloom/server/config/mode"
 	"github.com/rs/zerolog"
-	"github.com/screego/server/config/ipdns"
-	"github.com/screego/server/config/mode"
 )
 
 var (
-	prefix        = "screego"
-	files         = []string{"screego.config.development.local", "screego.config.development", "screego.config.local", "screego.config"}
-	absoluteFiles = []string{"/etc/screego/server.config"}
+	prefix        = "peerloom"
+	files         = []string{"peerloom.config.development.local", "peerloom.config.development", "peerloom.config.local", "peerloom.config"}
+	absoluteFiles = []string{"/etc/peerloom/server.config"}
 	osExecutable  = os.Executable
 	osStat        = os.Stat
 )
@@ -67,6 +67,8 @@ type Config struct {
 	TurnDenyPeers       []string     `default:"0.0.0.0/8,127.0.0.1/8,::/128,::1/128,fe80::/10" split_words:"true"`
 	TurnDenyPeersParsed []*net.IPNet `ignored:"true"`
 
+	MaxRoomMembers           int  `default:"12" split_words:"true"`
+	MaxMediaSeats            int  `default:"6" split_words:"true"`
 	CloseRoomWhenOwnerLeaves bool `default:"true" split_words:"true"`
 }
 
@@ -136,16 +138,19 @@ func Get() (Config, []FutureLog) {
 
 	if config.AuthMode != AuthModeTurn && config.AuthMode != AuthModeAll && config.AuthMode != AuthModeNone {
 		logs = append(logs,
-			futureFatal(fmt.Sprintf("invalid SCREEGO_AUTH_MODE: %s", config.AuthMode)))
+			futureFatal(fmt.Sprintf("invalid PEERLOOM_AUTH_MODE: %s", config.AuthMode)))
 	}
 
+	if config.MaxRoomMembers < 1 || config.MaxMediaSeats < 1 || config.MaxMediaSeats > config.MaxRoomMembers {
+		logs = append(logs, futureFatal("PEERLOOM_MAX_ROOM_MEMBERS and PEERLOOM_MAX_MEDIA_SEATS must be positive; media seats cannot exceed room members"))
+	}
 	if config.ServerTLS {
 		if config.TLSCertFile == "" {
-			logs = append(logs, futureFatal("SCREEGO_TLS_CERT_FILE must be set if TLS is enabled"))
+			logs = append(logs, futureFatal("PEERLOOM_TLS_CERT_FILE must be set if TLS is enabled"))
 		}
 
 		if config.TLSKeyFile == "" {
-			logs = append(logs, futureFatal("SCREEGO_TLS_KEY_FILE must be set if TLS is enabled"))
+			logs = append(logs, futureFatal("PEERLOOM_TLS_KEY_FILE must be set if TLS is enabled"))
 		}
 	}
 
@@ -175,7 +180,7 @@ func Get() (Config, []FutureLog) {
 		if _, err := rand.Read(config.Secret); err == nil {
 			logs = append(logs, FutureLog{
 				Level: zerolog.InfoLevel,
-				Msg:   "SCREEGO_SECRET unset, user logins will be invalidated on restart",
+				Msg:   "PEERLOOM_SECRET unset, user logins will be invalidated on restart",
 			})
 		} else {
 			logs = append(logs, futureFatal(fmt.Sprintf("cannot create secret %s", err)))
@@ -186,34 +191,34 @@ func Get() (Config, []FutureLog) {
 
 	if len(config.TurnExternalIP) > 0 {
 		if len(config.ExternalIP) > 0 {
-			logs = append(logs, futureFatal("SCREEGO_EXTERNAL_IP and SCREEGO_TURN_EXTERNAL_IP must not be both set"))
+			logs = append(logs, futureFatal("PEERLOOM_EXTERNAL_IP and PEERLOOM_TURN_EXTERNAL_IP must not be both set"))
 		}
 
-		config.TurnIPProvider, errs = parseIPProvider(config.TurnExternalIP, "SCREEGO_TURN_EXTERNAL_IP")
+		config.TurnIPProvider, errs = parseIPProvider(config.TurnExternalIP, "PEERLOOM_TURN_EXTERNAL_IP")
 		config.TurnPort = config.TurnExternalPort
 		config.TurnExternal = true
 		logs = append(logs, errs...)
 		if config.TurnExternalSecret == "" {
-			logs = append(logs, futureFatal("SCREEGO_TURN_EXTERNAL_SECRET must be set if external TURN server is used"))
+			logs = append(logs, futureFatal("PEERLOOM_TURN_EXTERNAL_SECRET must be set if external TURN server is used"))
 		}
 	} else if len(config.ExternalIP) > 0 {
-		config.TurnIPProvider, errs = parseIPProvider(config.ExternalIP, "SCREEGO_EXTERNAL_IP")
+		config.TurnIPProvider, errs = parseIPProvider(config.ExternalIP, "PEERLOOM_EXTERNAL_IP")
 		logs = append(logs, errs...)
 		split := strings.Split(config.TurnAddress, ":")
 		config.TurnPort = split[len(split)-1]
 	} else {
-		logs = append(logs, futureFatal("SCREEGO_EXTERNAL_IP or SCREEGO_TURN_EXTERNAL_IP must be set"))
+		logs = append(logs, futureFatal("PEERLOOM_EXTERNAL_IP or PEERLOOM_TURN_EXTERNAL_IP must be set"))
 	}
 
 	min, max, err := config.parsePortRange()
 	if err != nil {
-		logs = append(logs, futureFatal(fmt.Sprintf("invalid SCREEGO_TURN_PORT_RANGE: %s", err)))
+		logs = append(logs, futureFatal(fmt.Sprintf("invalid PEERLOOM_TURN_PORT_RANGE: %s", err)))
 	} else if min == 0 && max == 0 {
 		// valid; no port range
 	} else if min == 0 || max == 0 {
-		logs = append(logs, futureFatal("invalid SCREEGO_TURN_PORT_RANGE: min or max port is 0"))
+		logs = append(logs, futureFatal("invalid PEERLOOM_TURN_PORT_RANGE: min or max port is 0"))
 	} else if min > max {
-		logs = append(logs, futureFatal(fmt.Sprintf("invalid SCREEGO_TURN_PORT_RANGE: min port (%d) is higher than max port (%d)", min, max)))
+		logs = append(logs, futureFatal(fmt.Sprintf("invalid PEERLOOM_TURN_PORT_RANGE: min port (%d) is higher than max port (%d)", min, max)))
 	} else if (max - min) < 40 {
 		logs = append(logs, FutureLog{
 			Level: zerolog.WarnLevel,
@@ -227,7 +232,7 @@ func Get() (Config, []FutureLog) {
 		if err != nil {
 			logs = append(logs, FutureLog{
 				Level: zerolog.FatalLevel,
-				Msg:   fmt.Sprintf("Invalid SCREEGO_TURN_DENY_PEERS %q: %s", cidrString, err),
+				Msg:   fmt.Sprintf("Invalid PEERLOOM_TURN_DENY_PEERS %q: %s", cidrString, err),
 			})
 		} else {
 			config.TurnDenyPeersParsed = append(config.TurnDenyPeersParsed, cidr)
@@ -242,8 +247,8 @@ func Get() (Config, []FutureLog) {
 }
 
 func logDeprecated() []FutureLog {
-	if os.Getenv("SCREEGO_TURN_STRICT_AUTH") != "" {
-		return []FutureLog{{Level: zerolog.WarnLevel, Msg: "The setting SCREEGO_TURN_STRICT_AUTH has been removed."}}
+	if os.Getenv("PEERLOOM_TURN_STRICT_AUTH") != "" {
+		return []FutureLog{{Level: zerolog.WarnLevel, Msg: "The setting PEERLOOM_TURN_STRICT_AUTH has been removed."}}
 	}
 	return nil
 }
@@ -272,11 +277,14 @@ func getExecutableDir() (string, *FutureLog) {
 func getFiles(relativeTo string) []string {
 	var result []string
 	for _, file := range files {
+		if mode.Get() != mode.Dev && strings.HasPrefix(file, "peerloom.config.development") {
+			continue
+		}
 		result = append(result, filepath.Join(relativeTo, file))
 	}
 	homeDir, err := os.UserHomeDir()
 	if err == nil {
-		result = append(result, filepath.Join(homeDir, ".config/screego/server.config"))
+		result = append(result, filepath.Join(homeDir, ".config/peerloom/server.config"))
 	}
 	result = append(result, absoluteFiles...)
 	return result

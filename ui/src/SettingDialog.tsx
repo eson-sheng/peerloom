@@ -17,8 +17,10 @@ import {
     PreferredCodec,
     Settings,
     VideoDisplayMode,
+    videoDisplayModeLabel,
 } from './settings';
 import {NumberField} from './NumberField';
+import {i18n} from './i18n';
 
 export interface SettingDialogProps {
     open: boolean;
@@ -49,14 +51,14 @@ export const SettingDialog = ({open, setOpen, updateName, saveSettings}: Setting
 
     return (
         <Dialog open={open} onClose={() => setOpen(false)} maxWidth={'xs'} fullWidth>
-            <DialogTitle>Settings</DialogTitle>
+            <DialogTitle>{i18n['settings_dialog_title']}</DialogTitle>
             <DialogContent>
                 <form onSubmit={doSubmit}>
                     <Box sx={{paddingBottom: 1}}>
                         <TextField
                             autoFocus
                             margin="dense"
-                            label="Username"
+                            label={i18n['username']}
                             value={name}
                             onChange={(e) =>
                                 setSettingsInput((c) => ({...c, name: e.target.value}))
@@ -83,7 +85,7 @@ export const SettingDialog = ({open, setOpen, updateName, saveSettings}: Setting
                                     }))
                                 }
                                 renderInput={(params) => (
-                                    <TextField {...params} label="Preferred Codec" />
+                                    <TextField {...params} label={i18n['preferred_codec']} />
                                 )}
                             />
                         </Box>
@@ -91,6 +93,7 @@ export const SettingDialog = ({open, setOpen, updateName, saveSettings}: Setting
                     <Box sx={{paddingTop: 1}}>
                         <Autocomplete<VideoDisplayMode>
                             options={Object.values(VideoDisplayMode)}
+                            getOptionLabel={videoDisplayModeLabel}
                             onChange={(_, value) =>
                                 setSettingsInput((c) => ({
                                     ...c,
@@ -99,12 +102,14 @@ export const SettingDialog = ({open, setOpen, updateName, saveSettings}: Setting
                             }
                             value={displayMode}
                             fullWidth
-                            renderInput={(params) => <TextField {...params} label="Display Mode" />}
+                            renderInput={(params) => (
+                                <TextField {...params} label={i18n['display_mode']} />
+                            )}
                         />
                     </Box>
                     <Box sx={{paddingTop: 1}}>
                         <NumberField
-                            label="FrameRate"
+                            label={i18n['frame_rate']}
                             min={1}
                             onChange={(framerate) => setSettingsInput((c) => ({...c, framerate}))}
                             value={framerate}
@@ -115,10 +120,10 @@ export const SettingDialog = ({open, setOpen, updateName, saveSettings}: Setting
             </DialogContent>
             <DialogActions>
                 <Button onClick={() => setOpen(false)} color="primary">
-                    Cancel
+                    {i18n['cancel']}
                 </Button>
                 <Button onClick={doSubmit} color="primary">
-                    Save
+                    {i18n['save']}
                 </Button>
             </DialogActions>
         </Dialog>

@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/peerloom/server/auth"
+	"github.com/peerloom/server/config"
+	"github.com/peerloom/server/turn"
+	"github.com/peerloom/server/util"
+	"github.com/peerloom/server/ws/outgoing"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog/log"
-	"github.com/screego/server/auth"
-	"github.com/screego/server/config"
-	"github.com/screego/server/turn"
-	"github.com/screego/server/util"
 )
 
 func NewRooms(tServer turn.Server, users *auth.Users, conf config.Config) *Rooms {
@@ -57,14 +58,14 @@ type Rooms struct {
 func (r *Rooms) CurrentRoom(info ClientInfo) (*Room, error) {
 	roomID, ok := r.connected[info.ID]
 	if !ok {
-		return nil, fmt.Errorf("not connected")
+		return nil, fmt.Errorf("连接尚未建立")
 	}
 	if roomID == "" {
-		return nil, fmt.Errorf("not in a room")
+		return nil, fmt.Errorf("尚未进入房间")
 	}
 	room, ok := r.Rooms[roomID]
 	if !ok {
-		return nil, fmt.Errorf("room with id %s does not exist", roomID)
+		return nil, fmt.Errorf("房间 %s 不存在", roomID)
 	}
 
 	return room, nil
@@ -79,6 +80,7 @@ func (r *Rooms) RandRoomName() string {
 }
 
 func (r *Rooms) Upgrade(w http.ResponseWriter, req *http.Request) {
+	user, loggedIn := r.users.CurrentUser(req)
 	conn, err := r.upgrader.Upgrade(w, req, nil)
 	if err != nil {
 		log.Debug().Err(err).Msg("Websocket upgrade")
@@ -87,7 +89,6 @@ func (r *Rooms) Upgrade(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	user, loggedIn := r.users.CurrentUser(req)
 	c := newClient(conn, req, r.Incoming, user, loggedIn, r.config.TrustProxyHeaders)
 	r.Incoming <- ClientMessage{Info: c.info, Incoming: Connected{}, SkipConnectedCheck: true}
 
@@ -104,6 +105,18 @@ func (r *Rooms) Start() {
 		}
 
 		if err := msg.Incoming.Execute(r, msg.Info); err != nil {
+			// A rejected room operation must not disconnect a healthy member.
+			if room, roomErr := r.CurrentRoom(msg.Info); roomErr == nil && room.Users[msg.Info.ID] != nil {
+				operation := ""
+				if share, ok := msg.Incoming.(*StartShare); ok {
+					operation = "share"
+					if share.Kind == "voice" {
+						operation = "voice"
+					}
+				}
+				writeTimeout[outgoing.Message](msg.Info.Write, outgoing.OperationError{Message: err.Error(), Operation: operation})
+				continue
+			}
 			dis := Disconnected{Code: websocket.CloseNormalClosure, Reason: err.Error()}
 			dis.executeNoError(r, msg.Info)
 		}

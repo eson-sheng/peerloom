@@ -3,3 +3,10 @@
 *-packr.go
 /dist/
 *.local
+
+peerloom_linux_arm64
+peerloom
+
+# Local runtime configuration
+/peerloom.config
+/peerloom.config.development

@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/peerloom/server/ws/outgoing"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/screego/server/ws/outgoing"
 )
 
 var ping = func(conn *websocket.Conn) error {

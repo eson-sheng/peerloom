@@ -7,13 +7,13 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/peerloom/server/auth"
+	"github.com/peerloom/server/config"
+	"github.com/peerloom/server/ui"
+	"github.com/peerloom/server/ws"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/hlog"
 	"github.com/rs/zerolog/log"
-	"github.com/screego/server/auth"
-	"github.com/screego/server/config"
-	"github.com/screego/server/ui"
-	"github.com/screego/server/ws"
 )
 
 type Health struct {
@@ -24,6 +24,7 @@ type Health struct {
 
 type UIConfig struct {
 	AuthMode                 string `json:"authMode"`
+	CreateLoginRequired      bool   `json:"createLoginRequired"`
 	User                     string `json:"user"`
 	LoggedIn                 bool   `json:"loggedIn"`
 	Version                  string `json:"version"`
@@ -46,6 +47,7 @@ func Router(conf config.Config, rooms *ws.Rooms, users *auth.Users, version stri
 		user, loggedIn := users.CurrentUser(r)
 		_ = json.NewEncoder(w).Encode(&UIConfig{
 			AuthMode:                 conf.AuthMode,
+			CreateLoginRequired:      conf.UsersFile != "",
 			LoggedIn:                 loggedIn,
 			User:                     user,
 			Version:                  version,
@@ -92,7 +94,7 @@ func basicAuth(handler http.Handler, users *auth.Users) http.HandlerFunc {
 		user, pass, ok := r.BasicAuth()
 
 		if !ok || !users.Validate(user, pass) {
-			w.Header().Set("WWW-Authenticate", `Basic realm="screego"`)
+			w.Header().Set("WWW-Authenticate", `Basic realm="peerloom"`)
 			w.WriteHeader(401)
 			_, _ = w.Write([]byte("Unauthorized.\n"))
 			return

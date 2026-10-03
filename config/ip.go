@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/screego/server/config/ipdns"
+	"github.com/peerloom/server/config/ipdns"
 )
 
 func parseIPProvider(ips []string, config string) (ipdns.Provider, []FutureLog) {

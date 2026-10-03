@@ -3,8 +3,8 @@ package ws
 import (
 	"fmt"
 
+	"github.com/peerloom/server/ws/outgoing"
 	"github.com/rs/zerolog/log"
-	"github.com/screego/server/ws/outgoing"
 )
 
 func init() {
@@ -29,7 +29,7 @@ func (e *HostICE) Execute(rooms *Rooms, current ClientInfo) error {
 	}
 
 	if session.Host != current.ID {
-		return fmt.Errorf("permission denied for session %s", e.SID)
+		return fmt.Errorf("无权操作该连接会话")
 	}
 
 	room.Users[session.Client].WriteTimeout(outgoing.HostICE(*e))

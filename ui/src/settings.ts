@@ -1,4 +1,6 @@
 import React from 'react';
+import {i18n} from './i18n';
+
 export const CodecBestQuality: PreferredCodec = {mimeType: 'BEST_QUALITY'};
 export const CodecDefault: PreferredCodec = {mimeType: 'DEFAULT'};
 
@@ -9,9 +11,9 @@ export const preferCodecEquals = (a: PreferredCodec, b: PreferredCodec): boolean
 export const codecName = (mimeType: string): string => {
     switch (mimeType) {
         case CodecBestQuality.mimeType:
-            return 'Preset: Best Quality';
+            return i18n['preset_best_quality'];
         case CodecDefault.mimeType:
-            return 'Preset: Browser Default';
+            return i18n['preset_browser_default'];
         default:
             return mimeType;
     }
@@ -51,7 +53,21 @@ export enum VideoDisplayMode {
     OriginalSize = 'OriginalSize',
 }
 
-const SettingsKey = 'screegoSettings';
+// 用于 UI 显示的中文标签
+export const videoDisplayModeLabel = (mode: VideoDisplayMode): string => {
+    switch (mode) {
+        case VideoDisplayMode.FitToWindow:
+            return i18n['fit_to_window'];
+        case VideoDisplayMode.FitWidth:
+            return i18n['fit_width'];
+        case VideoDisplayMode.FitHeight:
+            return i18n['fit_height'];
+        case VideoDisplayMode.OriginalSize:
+            return i18n['original_size'];
+    }
+};
+
+const SettingsKey = 'peerloomSettings';
 
 export const loadSettings = (): Settings => {
     const settings: Partial<Settings> = JSON.parse(localStorage.getItem(SettingsKey) ?? '{}') ?? {};

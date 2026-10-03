@@ -9,6 +9,10 @@
     "@mui/icons-material": "9.0.0",
     "@mui/material": "9.0.0",
     "@mui/styles": "^6.1.1",
+    "@tiptap/extension-collaboration": "^3.31.3",
+    "@tiptap/react": "^3.31.4",
+    "@tiptap/starter-kit": "^3.31.4",
+    "@tiptap/y-tiptap": "^3.0.9",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.1",
@@ -22,7 +26,9 @@
     "use-http": "^1.0.28",
     "vite": "8.0.10",
     "vite-plugin-svgr": "5.2.0",
-    "vite-tsconfig-paths": "6.1.1"
+    "vite-tsconfig-paths": "6.1.1",
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.33"
   },
   "scripts": {
     "start": "vite",
